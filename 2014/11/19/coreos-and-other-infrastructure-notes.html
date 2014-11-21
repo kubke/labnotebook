@@ -1,0 +1,27 @@
+<h2 id="coreos">CoreOS?</h2>
+<p>Security model looks excellent. Some things not so clear:</p>
+<ul>
+<li><p>In a single node setup, what happens with updates? Would containers being run directly come down and not go back up automatically? In general, how effective or troublesome is it to run a single, low-demand app on a single node CoreOS rather than, say, an ubuntu image (e.g. just to benefit from the security updates model)? For instance, would an update cause a running app to exit in this scenario? (Say, if the container is launched directly with <code>docker</code> and not through <code>fleet</code>?) (Documentation merely notes that cluster allocation / fleet algorithm is fastest with between 3 &amp; 9 nodes).</p></li>
+<li><p>If I have a heterogenous cluster with one more powerful compute node, is there a way to direct that certain apps are run on that node and that other apps are not?</p></li>
+<li><p>Looks like one needs a load-balancer to provide a consistent IP for containers that might be running on any node of the cluster?</p></li>
+<li><p><a href="https://github.com/coreos/docs/issues/52">Enabling swap</a>. Works, but is there a way to do this completely in <code>cloud-config</code>?</p></li>
+</ul>
+<h2 id="setting-up-my-domain-names-for-digitalocean">Setting up my domain names for DigitalOcean</h2>
+<p>In Dreamhost DNS management:</p>
+<ul>
+<li>I have my top-level domain registered through Dreamhost, uses dreamhost’s nameservers.</li>
+<li>A-level entry for top level domain points to (the new) Github domain IP address</li>
+<li>Have CNAME entries for <code>www</code> and <code>io</code> pointing to <code>cboettig.github.io</code></li>
+</ul>
+<p><strong>First step</strong></p>
+<ul>
+<li>Add an A-level entry, <code>server.carlboettiger.info</code>, pointing to DigitalOcean server IP</li>
+</ul>
+<p>Then go over to DigitalOcean panel.</p>
+<p>From DigitalOcean DNS management:</p>
+<ul>
+<li>add new (A level) DNS entry as <code>server.carlboettiger.info</code> pointing to DO server IP</li>
+<li>Delete the existing three NS entries <code>ns1.digitalocean.com</code> etc.</li>
+<li>Add three new NS entries using <code>ns1.dreamhost.com</code> etc</li>
+</ul>
+<p>Things should be good to go!</p>

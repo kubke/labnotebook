@@ -108,7 +108,7 @@
     <h4>  <a property="account" href="https://github.com/cboettig" onclick="recordOutboundLink(this, 'Outbound Links', 'Github'); return false;"><i class="icon-github" alt="github"></i> Coding </a></h4> 
     <div class="excerpt">
       <div class="scroll">
-        <ul><li>cboettig pushed to master at ropensci/rfishbase: <em>report master branch as build status</em> <a href="https://github.com/ropensci/rfishbase/compare/595517c33c...dacfb2bfc6">08:58 2014/11/25</a></li><li>cboettig pushed to sandbox at rocker-org/rocker: <em>run base package testing on Travis-CI as in #8 build r-devel and rstudio from official r-base</em> <a href="https://github.com/rocker-org/rocker/compare/7c715ae8f4...49cd46e098">08:54 2014/11/25</a></li><li>cboettig pushed to master at cboettig/labnotebook: <em>add missing layout</em> <a href="https://github.com/cboettig/labnotebook/compare/2952044f2c...9d7ff421e8">08:52 2014/11/25</a></li><li>cboettig closed issue rocker-org/rocker#16: <em>Think it would be possible to get an official R stack?</em> <a href="https://github.com/rocker-org/rocker/issues/16">08:50 2014/11/25</a></li><li>cboettig commented on issue rocker-org/rocker#16: <em>Thanks @psftw et al for your help with this. the PR for this issue, docker-library/official-images#310 has now been merged so I think we can close …</em> <a href="https://github.com/rocker-org/rocker/issues/16#issuecomment-64468528">08:50 2014/11/25</a></li></ul>
+        <ul><li>cboettig pushed to sandbox at rocker-org/rocker: <em>image name had somehow been omitted, whoops</em> <a href="https://github.com/rocker-org/rocker/compare/977d747f1b...a932410dc7">09:42 2014/11/25</a></li><li>cboettig pushed to master at cboettig/labnotebook: <em>post new notes</em> <a href="https://github.com/cboettig/labnotebook/compare/9d7ff421e8...4f42e642fa">09:39 2014/11/25</a></li><li>cboettig pushed to sandbox at rocker-org/rocker: <em>don't try and write out test files</em> <a href="https://github.com/rocker-org/rocker/compare/49cd46e098...977d747f1b">09:03 2014/11/25</a></li><li>cboettig pushed to gh-pages at cboettig/labnotebook: <em>Updating to cboettig/labnotebook@9d7ff42.</em> <a href="https://github.com/cboettig/labnotebook/compare/2cb150f828...009239a4e7">08:59 2014/11/25</a></li><li>cboettig pushed to master at ropensci/rfishbase: <em>report master branch as build status</em> <a href="https://github.com/ropensci/rfishbase/compare/595517c33c...dacfb2bfc6">08:58 2014/11/25</a></li></ul>
       </div>
     </div>
   </div>
@@ -144,6 +144,121 @@
               'Outbound Links', 'RSS'); return false;"
               style="color: inherit;"
               ><i class="icon-rss" ></i> Entries</a></h4>
+      
+        <div class="col-md-3">
+          <header><h4><a href="/2014/11/24/coreos-docker-registries-etc.html">Coreos Docker Registries Etc</a></h4></header>
+<p><span></span></p>
+<p style="font-style:italic"> 24 Nov 2014</p>
+
+<article>
+<div class="excerpt">
+<h2 id="a-secure-docker-registry">A secure docker registry</h2>
+<p>Running one’s own docker registry is far more elegant than moving tarballs between machines (e.g. when migrating between servers, particularly for images that may contain sensitive data such as security credentials). While it’s super convenient to have a containerized version of the Docker registry ready for action, it doesn’t do much good without putting it behind an HTTPS server (otherwise we have to restart our entire docker service with the insecure flag to permit communication with an unauthenticated registry – doesn’t sound like a good idea). So this meant learning how to use <code>nginx</code> load balancing, which I guess is useful to know more generally.</p>
+<h3 id="first-pass-nginx-on-ubuntu-server">First pass: nginx on ubuntu server</h3>
+<p>After a few false starts, decided the <a href="https://www.digitalocean.com/community/tutorials/how-to-set-up-a-private-docker-registry-on-ubuntu-14-04">digitalocean guide</a> is easily the best (though steps 1-3 can be skipped by using a containerized <code>registry</code> instead). This runs <code>nginx</code> directly from the host OS, which is in some ways more straight forward but less portable. A few notes-to-self in working through the tutorial:</p>
+<ul>
+<li><p>Note: At first, nginx refuses to run because there’s was <code>default</code> configuration in <code>cd /etc/nginx/sites-enabled</code> that tries to create a conflict. Remove this and things go pretty nicely.</p></li>
+<li><p>Note: Running the registry container explicitly on port <code>127.0.0.1</code> provides an internal-only port that we can then point to from nginx. (Actually this will no longer matter when we use a containerized <code>nginx</code>, since we will simply not export these ports at all, but only expose the port of the <code>nginx</code> load balancer). Still, good to finally be aware of the difference between <code>127.0.0.1</code> and <code>0.0.0.0</code> (the publicly visible localhost, and the default if we supply only a port) in this context.</p></li>
+<li><p>Note: Running and configuring <code>nginx</code> Note that keys are specific to the url. This is necessary for the server signing request, but I believe could have been omitted in the root certificate. Here’s how w ego about creating a root key and certificate (<code>crt</code>), a server key, server signing request (<code>csr</code>), and then sign the latter with the former to get the server certificate.</p></li>
+</ul>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">openssl</span> genrsa -out dockerCA.key 2048
+<span class="kw">openssl</span> req -x509 -new -nodes -key dockerCA.key -days 10000 -out dockerCA.crt -subj <span class="st">&#39;/C=US/ST=Oregon/L=Portland/CN=coreos.carlboettiger.info&#39;</span>
+<span class="kw">openssl</span> genrsa -out docker-registry.key 2048
+<span class="kw">openssl</span> req -new -key docker-registry.key -out docker-registry.csr -subj <span class="st">&#39;/C=US/ST=Oregon/L=Portland/CN=coreos.carlboettiger.info&#39;</span>
+<span class="kw">openssl</span> x509 -req -in docker-registry.csr -CA dockerCA.crt -CAkey dockerCA.key -CAcreateserial -out docker-registry.crt -days 10000</code></pre>
+<p>Note that we also need the <code>htpasswd</code> file from above, which needs <code>apache2-utils</code> and so cannot be generated directly from the CoreOS terminal (though the <code>openssl</code> certs can):</p>
+<pre><code>sudo htpasswd -bc /etc/nginx/docker-registry.htpasswd $USERNAME $PASSWORD</code></pre>
+<p>Having created these ahead of time, I end up just copying my keys into the Dockerfile for my <code>nginx</code> instance (if we generated them on the container, we’d still need to get <code>dockerCA.crt</code> off the container to authenticate the client machines. Makes for a simple Dockerfile that we then build locally:</p>
+<pre><code>FROM ubuntu:14.04
+RUN apt-get update &amp;&amp; apt-get install -y apache2-utils curl nginx openssl supervisor
+COPY docker-registry /etc/nginx/sites-available/docker-registry
+RUN ln -s /etc/nginx/sites-available/docker-registry /etc/nginx/sites-enabled/docker-registry
+
+## Copy over certificates ##
+COPY docker-registry.crt /etc/ssl/certs/docker-registry 
+COPY docker-registry.key /etc/ssl/private/docker-registry 
+COPY docker-registry.htpasswd /etc/nginx/docker-registry.htpasswd
+
+
+EXPOSE 8080
+
+## use supervisord to persist
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+CMD [&quot;/usr/bin/supervisord&quot;]</code></pre>
+<p>Note that we need to install the <code>dockerCA.crt</code> certificate on any client that wants to access the private registry. On Ubuntu this looks like:</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">sudo</span> mkdir /usr/local/share/ca-certificates/docker-dev-cert
+<span class="kw">sudo</span> cp devdockerCA.crt /usr/local/share/ca-certificates/docker-dev-cert
+<span class="kw">sudo</span> update-ca-certificates 
+<span class="kw">sudo</span> service docker restart</code></pre>
+<p>But on CoreOS we use a different directory (and restarting the docker service doesn’t seem possible or necessary):</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">sudo</span> cp dockerCA.crt /etc/ssl/certs/docker-cert
+<span class="kw">sudo</span> update-ca-certificates  </code></pre>
+<ul>
+<li><p>Note: Could not get the official <code>nginx</code> container to run the <code>docker-registry</code> config file as <code>/etc/nginx/nginx.conf</code>, either with or without adding <code>daemon off;</code> at the top of <code>/etc/nginx/nginx.conf</code>. With, it complains this is a duplicate, (despite being recommended on the <a href="https://registry.hub.docker.com/_/nginx">nginx container documentation</a>, though admittedly this already appears in the default command <code>[&quot;nginx&quot; &quot;-g&quot; &quot;daemon off;&quot;]</code>). Without, the error says that <code>upstream</code> directive is not allowed here. Not sure what to make of these errors, ended up running an ubuntu container and then just installing <code>nginx</code> etc following the digitalocean guide. Ended up dropping the <code>daemon off;</code> from the config file and running <code>service nginx start</code> through <code>supervisord</code> to ensure that the container stays up. Oh well.</p></li>
+<li><p>Note: I got a 502 error when calling <code>curl</code> against the the <code>nginx</code> container-provided URL (with or without SSL enabled), since from inside the <code>nginx</code> container we cannot access the host addresses. The simplest solution is to add <code>--net=&quot;host&quot;</code> when we <code>docker run</code> the <code>nginx</code> container, but this isn’t particularly secure. Instead, we’ll link directly to the ports of the <code>registry</code> container like this:</p></li>
+</ul>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">docker</span> run  --name=registry -p 8080:8080 registry
+<span class="kw">docker</span> run --name=nginx --net=container:registry nginx</code></pre>
+<p>Note that we do not need to export the registry port (e.g. <code>-p 5000:5000</code>) at all, but we do need to export the <code>nginx</code> load-balancer port <em>from the <code>registry</code> container</em> first, since we will simply be linking it’s network with the special <code>--net=container:registry</code>.</p>
+<p>Note that we would probably want to link a local directory to provide persistent storage for the <code>registry</code>; in the above example images committed to registry are lost when the container is destroyed.</p>
+<p>We can now log in:</p>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">docker</span> login https://<span class="kw">&lt;</span>YOUR-DOMAIN<span class="kw">&gt;</span>:8080</code></pre>
+<p>We can now reference our private registry by using its full address in the namespace of the image in commands to <code>docker pull</code>, <code>push</code>, <code>run</code> etc.</p>
+<h2 id="migrating-gitlab-between-servers">Migrating gitlab between servers</h2>
+<p>This migration was my original motivation to configure the private docker registry; ironically it isn’t necessary for this case (though it’s useful for the drone image, for instance).</p>
+<p>Note that there is no need to migrate the redis and postgresql containers manually. Migrating the backup file over to the corresponding location in the linked volume and then running the backup-restore is sufficient. Upgrading is also surprisingly smooth; we can backup (just in case), then stop and remove the container (leaving the <code>redis</code> and <code>postgresql</code> containers running), pull and relaunch with otherwise matched option arguments and the upgrade runs automatically.</p>
+<p>When first launching the <code>gitlab</code> container on a tiny droplet running coreos, my droplet seems invariably to hang. Rebooting from the digitalocean terminal seems to fix this. A nice feature of <code>fleet</code> is that all the containers are restarted automatically after reboot, unlike when running these directly from <code>docker</code> on my ubuntu machine.</p>
+<h2 id="notes-on-fleet-unit-files">Notes on fleet unit files</h2>
+<p>Fleet unit files are actually pretty handy and straight forward. One trick is that we must quote commands in which we want to make use of environmental variables. For instance, one must write:</p>
+<pre><code>Environment=&quot;VERSION=1.0&quot;
+ExecStart=/bin/bash -c &quot;/usr/bin/docker run image:${VERSION}&quot;</code></pre>
+<p>in a <code>Service</code> block, rather than <code>ExecStart=/usr/bin/docker run ...</code> directly, for the substitution to work. It seems if we are using the more standard practice of environment files (which after all is the necessary approach to avoid having to edit the unit file directly one way or another anyway), we can avoid the <code>bin/bash</code> wrapper and insert the environment reference directly.</p>
+<p>If we’re not doing anything fancy wrt load balancing between different servers, we don’t have that much use for the corresponding “sidekick” unit files that keep our global <code>etcd</code> registry up to date. Perhaps these will see more use later.</p>
+<h2 id="cloud-config">Cloud-config</h2>
+<p>Note that we need to refresh the discovery url pretty-much anytime we completely destroy the cluster.</p>
+<p>A few edits to my cloud-config to handle initiating swap, essential for running most things (gitlab, rstudio) on tiny droplets. Still requires one manual reboot for the allocation to take effect. Adds this to the <code>units</code> section of <code>#cloud-config</code>:</p>
+<pre><code>    ## Configure SWAP as per https://github.com/coreos/docs/issues/52
+    - name: swap.service
+      command: start
+      content: |
+        [Unit]
+        Description=Turn on swap
+
+        [Service]
+        Type=oneshot
+        Environment=&quot;SWAPFILE=/1GiB.swap&quot;
+        RemainAfterExit=true
+        ExecStartPre=/usr/sbin/losetup -f ${SWAPFILE}
+        ExecStart=/usr/bin/sh -c &quot;/sbin/swapon $(/usr/sbin/losetup -j ${SWAPFILE} | /usr/bin/cut -d : -f 1)&quot;
+        ExecStop=/usr/bin/sh -c &quot;/sbin/swapoff $(/usr/sbin/losetup -j ${SWAPFILE} | /usr/bin/cut -d : -f 1)&quot;
+        ExecStopPost=/usr/bin/sh -c &quot;/usr/sbin/losetup -d $(/usr/sbin/losetup -j ${SWAPFILE} | /usr/bin/cut -d : -f 1)&quot;
+
+        [Install]
+        WantedBy=local.target
+
+    - name: swapalloc.service
+      command: start
+      content: |
+        [Unit]
+        Description=Allocate swap
+
+        [Service]
+        Type=oneshot
+        ExecStart=/bin/sh -c &quot;sudo fallocate -l 1024m /1GiB.swap &amp;&amp; sudo chmod 600 /1GiB.swap &amp;&amp; sudo chattr +C /1GiB.swap &amp;&amp; sudo mkswap /1GiB.swap&quot;
+</code></pre>
+<p>More probably be structured more elegantly, but it works. (Not much luck trying to tweak this into a bunch of <code>ExecStartPre</code> commands though.</p>
+<h2 id="nfs-sharing-on-coreos">NFS sharing on CoreOS?</h2>
+<p>Couldn’t figure this one out. <a href="http://serverfault.com/questions/647014/share-disks-through-nfs-on-a-coreos-cluster">My SO Q here</a></p>
+ 
+<!-- not that raw_content depends on custom generator, 
+     see _plugins/jekyll-labnotebook-plugins/raw_content --> 
+</article> 
+<p> <a href="/2014/11/24/coreos-docker-registries-etc.html"> <em>Read more</em></a> </p>
+<br />
+<br />
+
+
+        </div>
       
         <div class="col-md-3">
           <header><h4><a href="/2014/11/19/coreos-and-other-infrastructure-notes.html">Coreos And Other Infrastructure Notes</a></h4></header>
@@ -271,6 +386,10 @@ Cmcmc &lt;-<span class="st"> </span><span class="kw">compileNimble</span>(Rmcmc,
 
         </div>
       
+    </div>
+
+    <div class="row">
+      
         <div class="col-md-3">
           <header><h4><a href="/2014/11/07/dear-docker-hub-users.html">Dear DockerHub users: please configure your repository links</a></h4></header>
 <p><span>(for security's sake!)</span></p>
@@ -295,10 +414,6 @@ Cmcmc &lt;-<span class="st"> </span><span class="kw">compileNimble</span>(Rmcmc,
 
 
         </div>
-      
-    </div>
-
-    <div class="row">
       
         <div class="col-md-3">
           <header><h4><a href="/2014/11/05/notes.html">linking binaries from other containers</a></h4></header>
@@ -408,6 +523,10 @@ Cmcmc &lt;-<span class="st"> </span><span class="kw">compileNimble</span>(Rmcmc,
 
         </div>
       
+    </div>
+
+    <div class="row">
+      
         <div class="col-md-3">
           <header><h4><a href="/2014/10/28/jekyll-free.html">Goodbye Jekyll?</a></h4></header>
 <p><span></span></p>
@@ -453,10 +572,6 @@ header: |
 
 
         </div>
-      
-    </div>
-
-    <div class="row">
       
         <div class="col-md-3">
           <header><h4><a href="/2014/10/21/docker-and-user-permissions-crazyness.html">Docker And User Permissions Crazyness</a></h4></header>
@@ -545,99 +660,6 @@ ls -l </code></pre>
      see _plugins/jekyll-labnotebook-plugins/raw_content --> 
 </article> 
 <p> <a href="/2014/10/20/notes.html"> <em>Read more</em></a> </p>
-<br />
-<br />
-
-
-        </div>
-      
-        <div class="col-md-3">
-          <header><h4><a href="/2014/10/16/gitlab-and-other-configuration-notes.html">Gitlab And Other Configuration Notes</a></h4></header>
-<p><span></span></p>
-<p style="font-style:italic"> 16 Oct 2014</p>
-
-<article>
-<div class="excerpt">
-<p>Updating gitlab setup:</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">docker</span> pull sameersbn/redis:latest
-<span class="kw">docker</span> pull sameersbn/gitlab:7.3.2-1
-<span class="kw">docker</span> pull sameersbn/postgresql:latest
-
-
-<span class="kw">mkdir</span> -p /opt/gitlab/data
-<span class="kw">mkdir</span> -p /opt/postgresql/data
-
-<span class="kw">docker</span> run --name=postgresql -d \
-  <span class="kw">-e</span> <span class="st">&#39;DB_NAME=gitlabhq_production&#39;</span> -e <span class="st">&#39;DB_USER=gitlab&#39;</span> -e <span class="st">&#39;DB_PASS=password&#39;</span> \
-  <span class="kw">-v</span> /opt/postgresql/data:/var/lib/postgresql \
-  <span class="kw">sameersbn</span>/postgresql:<span class="kw">latest</span>
-<span class="kw">docker</span> run --name=redis -d sameersbn/redis:latest
-
-<span class="kw">docker</span> run --name=gitlab -d \
-  <span class="kw">--link</span> postgresql:postgresql \
-  <span class="kw">--link</span> redis:redisio \
-  <span class="kw">-p</span> 10080:80 -p 10022:22 \
-  <span class="kw">-v</span> /opt/gitlab/data:/home/git/data \
-    <span class="kw">sameersbn</span>/gitlab:<span class="kw">7.3.2-1</span></code></pre>
-<p>More consisely, do this with <a href="http://fig.sh">fig</a></p>
-<pre class="sourceCode yaml"><code class="sourceCode yaml"><span class="fu">gitlab:</span>
-  <span class="fu">image:</span> sameersbn/gitlab:7.3.2-1
-  <span class="fu">links:</span>
-   <span class="kw">-</span> postgres
-   <span class="kw">-</span> <span class="fu">redis:</span>redisio
-  <span class="fu">ports:</span>
-   <span class="kw">-</span> <span class="st">&quot;10080:80&quot;</span>
-   <span class="kw">-</span> <span class="st">&quot;10022:22&quot;</span>
-  <span class="fu">volumes:</span>
-    <span class="kw">-</span> <span class="fu">/opt/gitlab/data:</span>/home/git/data
-  <span class="fu">environment:</span>
-    <span class="kw">-</span> SMTP_USER=USER@gmail.com
-    <span class="kw">-</span> SMTP_PASS=PASSWORD
-
-<span class="fu">postgres:</span>
-  <span class="fu">image:</span> postgres:latest
-  <span class="fu">volumes:</span>
-    <span class="kw">-</span> <span class="fu">/opt/postgresql/data:</span>/var/lib/postgresql
-  <span class="fu">environment:</span>
-    <span class="kw">-</span> POSTGRESQL_USER=gitlab
-    <span class="kw">-</span> POSTGRESQL_PASS=
-    <span class="kw">-</span> POSTGRESQL_DB=gitlabhq_production
-<span class="fu">redis:</span>
-  <span class="fu">image:</span> redis:2.8.9</code></pre>
-<p>Hmm… memory error using the <code>fig</code> approach; doesn’t happen when running individual containers as above…</p>
-<p>Looks like we have to run the original version if we want to keep our database. But no go since sql database information is lost:</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">docker</span> pull gitlab:7.2.1-1
-<span class="kw">docker</span> run --name=gitlab -d \
-  <span class="kw">-p</span> 10080:80 -p 10022:22 \
-  <span class="kw">-v</span> /opt/gitlab/data:/home/git/data \
-    <span class="kw">sameersbn</span>/gitlab:<span class="kw">7.2.1-1</span>
-<span class="kw">docker</span> stop gitlab
-<span class="kw">docker</span> run --rm -it \
-  <span class="kw">-p</span> 20080:80 -p 20022:22 \
-  <span class="kw">-v</span> /opt/gitlab/data:/home/git/data \
-    <span class="kw">sameersbn</span>/gitlab:<span class="kw">7.2.1-1</span> app:rake gitlab:backup:restore
-<span class="kw">docker</span> restart gitlab</code></pre>
-<h2 id="drone">Drone</h2>
-<p>Ah, Drone now provides their own Dockerfile, which we can grab and build for the latest Drone:</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">git</span> clone https://github.com/drone/drone.git
-<span class="kw">docker</span> build -t drone/drone drone</code></pre>
-<p>Then we can run, linking volumes appropriately:</p>
-<pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">docker</span> run --name drone -d -p 88:80 \
-<span class="kw">-v</span> /var/run/docker.sock:/var/run/docker.sock \
-<span class="kw">-t</span> \
-<span class="kw">-e</span> DRONE_GITHUB_CLIENT=<span class="kw">&lt;</span>clientkey<span class="kw">&gt;</span> \
-<span class="kw">-e</span> DRONE_GITHUB_SECRET=<span class="kw">&lt;</span>secretkey<span class="kw">&gt;</span> \
-<span class="kw">drone/drone</span><span class="st">&quot;</span></code></pre>
-<p>Note that this doesn’t work with a <code>drone.toml</code> file even when linking volumes etc., see <a href="https://github.com/drone/drone/issues/580">#580</a>.</p>
-<p>Also note that this setup shares docker images with the host machine, rather than having a seperate library, which is rather good for saving space. I believe this should be trivial to back-up (just by exporting the container), but have to test that stil.</p>
-<p>These rather verbose docker calls for drone and gitlab make a great use-case for fig. Unfortunately, fig seems to crash out of memory on my tiny DO droplet, but running these commands manually works like a charm.</p>
-<h2 id="digitalocean">DigitalOcean</h2>
-<p>Ooh: configure scripts for starting DO droplets. e.g. automate the launch of <a href="https://www.digitalocean.com/community/tutorials/how-to-use-cloud-config-for-your-initial-server-setup">a more secure configuration</a>, looks like a more formal way than my shell script. /ht <span class="citation" data-cites="hadley">@hadley</span>.</p>
- 
-<!-- not that raw_content depends on custom generator, 
-     see _plugins/jekyll-labnotebook-plugins/raw_content --> 
-</article> 
-<p> <a href="/2014/10/16/gitlab-and-other-configuration-notes.html"> <em>Read more</em></a> </p>
 <br />
 <br />
 

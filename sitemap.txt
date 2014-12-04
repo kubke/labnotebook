@@ -803,8 +803,10 @@ http://carlboettiger.info/wordpress/archives/4482/index.html
 http://carlboettiger.info/archives/4482/index.html 
 
  
+http://carlboettiger.info/2014/11/26/coreos-cluster-gotchas.html  
 http://carlboettiger.info/2014/11/24/coreos-docker-registries-etc.html  
 http://carlboettiger.info/2014/11/19/coreos-and-other-infrastructure-notes.html  
+http://carlboettiger.info/2014/11/17/wssspe-feedback.html  
 http://carlboettiger.info/2014/11/14/nimble-explore.html  
 http://carlboettiger.info/2014/11/07/dear-docker-hub-users.html  
 http://carlboettiger.info/2014/11/05/notes.html  
@@ -1245,6 +1247,7 @@ http://carlboettiger.info/2011/10/05/wednesday-forage-fish-cascades.html
 http://carlboettiger.info/2011/10/04/tuesday-9.html  
 http://carlboettiger.info/2011/09/30/friday-wordpress-backups-pmc-edits.html  
 http://carlboettiger.info/2011/09/29/thursday-10.html  
+http://carlboettiger.info/2011/09/29/phylogenetics-research-proposal.html  
 http://carlboettiger.info/2011/09/28/wednesday-berkeley-visits.html  
 http://carlboettiger.info/2011/09/27/tuesday-berkeley-visits.html  
 http://carlboettiger.info/2011/09/26/monday-10.html  

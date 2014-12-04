@@ -108,7 +108,7 @@
     <h4>  <a property="account" href="https://github.com/cboettig" onclick="recordOutboundLink(this, 'Outbound Links', 'Github'); return false;"><i class="icon-github" alt="github"></i> Coding </a></h4> 
     <div class="excerpt">
       <div class="scroll">
-        <ul><li>cboettig pushed to master at cboettig/labnotebook: <em>chickenscratch</em> <a href="https://github.com/cboettig/labnotebook/compare/fee7602fc4...36cbb8dbfe">12:04 2014/12/04</a></li><li>cboettig pushed to master at cboettig/labnotebook: <em>still a draft drafts</em> <a href="https://github.com/cboettig/labnotebook/compare/66107a1c98...fee7602fc4">12:03 2014/12/04</a></li><li>cboettig pushed to master at cboettig/labnotebook: <em>finish off draft notes</em> <a href="https://github.com/cboettig/labnotebook/compare/7a91ad9e56...66107a1c98">11:59 2014/12/03</a></li><li>cboettig pushed to master at ropensci/RNeXML: <em>update supertreebase URL, closes #102</em> <a href="https://github.com/ropensci/RNeXML/compare/26d66ff282...1369849f4e">09:31 2014/12/03</a></li><li>cboettig closed issue ropensci/RNeXML#102: <em>supertreebase location has changed</em> <a href="https://github.com/ropensci/RNeXML/issues/102">09:31 2014/12/03</a></li></ul>
+        <ul><li>cboettig pushed to gh-pages at cboettig/labnotebook: <em>Updating to cboettig/labnotebook@66107a1.</em> <a href="https://github.com/cboettig/labnotebook/compare/52035e7d61...f6b78a01c7">12:08 2014/12/04</a></li><li>cboettig pushed to master at cboettig/labnotebook: <em>chickenscratch</em> <a href="https://github.com/cboettig/labnotebook/compare/fee7602fc4...36cbb8dbfe">12:04 2014/12/04</a></li><li>cboettig pushed to master at cboettig/labnotebook: <em>still a draft drafts</em> <a href="https://github.com/cboettig/labnotebook/compare/66107a1c98...fee7602fc4">12:03 2014/12/04</a></li><li>cboettig pushed to master at cboettig/labnotebook: <em>finish off draft notes</em> <a href="https://github.com/cboettig/labnotebook/compare/7a91ad9e56...66107a1c98">11:59 2014/12/03</a></li><li>cboettig pushed to master at ropensci/RNeXML: <em>update supertreebase URL, closes #102</em> <a href="https://github.com/ropensci/RNeXML/compare/26d66ff282...1369849f4e">09:31 2014/12/03</a></li></ul>
       </div>
     </div>
   </div>
@@ -464,6 +464,50 @@ Cmcmc &lt;-<span class="st"> </span><span class="kw">compileNimble</span>(Rmcmc,
         </div>
       
         <div class="col-md-3">
+          <header><h4><a href="/2014/11/13/discrete-grid-notes.html">Discrete Grid Notes</a></h4></header>
+<p><span></span></p>
+<p style="font-style:italic"> 13 Nov 2014</p>
+
+<article>
+<div class="excerpt">
+<p>Smoothing post-policy calc?</p>
+<pre class="sourceCode r"><code class="sourceCode r">
+fig3 &lt;-<span class="st"> </span><span class="kw">ggplot</span>(policies, <span class="kw">aes</span>(stock, stock -<span class="st"> </span>value, <span class="dt">color=</span>method)) +
+<span class="st">  </span><span class="kw">stat_smooth</span>(<span class="dt">lwd=</span><span class="fl">1.2</span>, <span class="dt">method=</span><span class="st">&quot;loess&quot;</span>, <span class="dt">degree=</span><span class="dv">1</span>, <span class="dt">span=</span><span class="fl">0.2</span>, <span class="dt">level=</span><span class="dv">0</span>, <span class="dt">n=</span><span class="dv">50</span>) +<span class="st"> </span>
+<span class="st">  </span><span class="kw">facet_wrap</span>(~method) +
+<span class="st">  </span><span class="kw">xlab</span>(<span class="st">&quot;stock size, x(t)&quot;</span>) +<span class="st"> </span>
+<span class="st">  </span><span class="kw">ylab</span>(<span class="st">&quot;escapement, S(t)&quot;</span>)  +
+<span class="st">  </span><span class="kw">scale_colour_manual</span>(<span class="dt">values=</span>colorkey, <span class="dt">guide=</span><span class="ot">FALSE</span>)
+fig3
+
+<span class="kw">library</span>(<span class="st">&quot;dplyr&quot;</span>)
+s_policies &lt;-<span class="st"> </span><span class="kw">select_</span>(<span class="kw">ggplot_build</span>(fig3)$data[[<span class="dv">1</span>]], <span class="st">&quot;x&quot;</span>, <span class="st">&quot;PANEL&quot;</span>, <span class="st">&quot;y&quot;</span>)
+s_policies$PANEL &lt;-<span class="st"> </span><span class="kw">mapvalues</span>(s_policies$PANEL, <span class="dt">from =</span> <span class="dv">1</span>:<span class="dv">6</span>, <span class="dt">to =</span> <span class="kw">levels</span>(policies$method))
+<span class="kw">names</span>(s_policies) &lt;-<span class="st"> </span><span class="kw">names</span>(policies)
+
+<span class="kw">library</span>(<span class="st">&quot;tidyr&quot;</span>)
+opt_policy &lt;-<span class="st"> </span>s_policies %&gt;%<span class="st"> </span>
+<span class="st">  </span><span class="kw">mutate</span>(<span class="dt">harvest =</span> stock -<span class="st"> </span>value) %&gt;%<span class="st"> </span>
+<span class="st">  </span><span class="kw">select</span>(stock, method, <span class="dt">value =</span> harvest) %&gt;%
+<span class="st">  </span><span class="kw">spread</span>(method, value) %&gt;%
+<span class="st">  </span><span class="kw">select</span>(-stock)
+OPT &lt;-<span class="st"> </span><span class="kw">as.data.frame</span>(<span class="kw">sapply</span>(opt_policy, function(y) <span class="kw">sapply</span>(y, function(x) <span class="kw">which.min</span>(<span class="kw">abs</span>(x-x_grid)))))</code></pre>
+ 
+<!-- not that raw_content depends on custom generator, 
+     see _plugins/jekyll-labnotebook-plugins/raw_content --> 
+</article> 
+<p> <a href="/2014/11/13/discrete-grid-notes.html"> <em>Read more</em></a> </p>
+<br />
+<br />
+
+
+        </div>
+      
+    </div>
+
+    <div class="row">
+      
+        <div class="col-md-3">
           <header><h4><a href="/2014/11/07/dear-docker-hub-users.html">Dear DockerHub users: please configure your repository links</a></h4></header>
 <p><span>(for security's sake!)</span></p>
 <p style="font-style:italic"> 07 Nov 2014</p>
@@ -487,10 +531,6 @@ Cmcmc &lt;-<span class="st"> </span><span class="kw">compileNimble</span>(Rmcmc,
 
 
         </div>
-      
-    </div>
-
-    <div class="row">
       
         <div class="col-md-3">
           <header><h4><a href="/2014/11/05/notes.html">linking binaries from other containers</a></h4></header>
@@ -594,52 +634,6 @@ Cmcmc &lt;-<span class="st"> </span><span class="kw">compileNimble</span>(Rmcmc,
      see _plugins/jekyll-labnotebook-plugins/raw_content --> 
 </article> 
 <p> <a href="/2014/11/03/three-interfaces-for-Docker.html"> <em>Read more</em></a> </p>
-<br />
-<br />
-
-
-        </div>
-      
-        <div class="col-md-3">
-          <header><h4><a href="/2014/10/28/jekyll-free.html">Goodbye Jekyll?</a></h4></header>
-<p><span></span></p>
-<p style="font-style:italic"> 28 Oct 2014</p>
-
-<article>
-<div class="excerpt">
-<p>The great strength of Jekyll is in providing a really convenient HTML templating system through the <code>_layouts</code> and <code>_includes</code> directories and Liquid variables (including the auto-populated ones like <code>page.previous.url</code>).</p>
-<p>For quickly deploying simple sites though, this is often unnecessary: one or two layout files will suffice, and an <code>_includes</code> directory is not so useful with only a single layout. The ease of maintenance by having a template divided into modular chunks is somewhat trumped by the greater simplicity of copying a single template or set of templates over into a new directory.</p>
-<p>And deploying Jekyll could be easier, particularly with pandoc as the parser. Despite plugins that nicely let pandoc act just like the built-in parsers and a CI setup with Travis to support automated building of my site on push, setting these components up repeatedly on every new repository is a bit tedious. Occassional updates of Jekyll and related gems have also broken my build pipeline more than once, though this is less of an issue now that I’ve added bundler and a Gemfile to restrict gem versions and provide a Dockerized setup for local deploying. These things keep the overhead low for my main site, but are an overhead to replicate.</p>
-<p>Meanwhile, I’ve found Pandoc’s templating system to be immensely powerful, particularly with the yaml headers now supported. To provide a lightweight way to deploy a website on a gh-pages branch of a new repository, I’ve found this system works quite well. I’ve illustrated this on my <a href="https://github.com/cboettig/tree/gh-pages">gh-pages branch of my template</a> repository. Previously, this used Jekyll with the built-in redcarpet markdown parser to deploy markdown files in a style consistent with my notebook.</p>
-<p>Now, I’ve stripped this down to simply use a pandoc template, pandoc YAML, and a Makefile to accomplish much the same thing.</p>
-<p>I was dissapointed to see that the <code>_output.yaml</code> used by rmarkdown for building multi-page websites did not leverage the generic <code>metadata.yaml</code> approach already built into pandoc. This prevents us specifying custom generic metadata the way one does in Jekyll with <code>_config.yaml</code>, as I describe in <a href="https://github.com/rstudio/rmarkdown/issues/297">rmarkdown#297</a> I can work around this with the Makefile by calling pandoc manually with the additional <code>metadta.yaml</code> file, as follows:</p>
-<pre class="Make"><code>%.html: %.Rmd
-  R --vanilla --slave -e &quot;knitr::knit(&#39;$&lt;&#39;)&quot;
-  pandoc --template _layouts/default.html metadata.yaml -o $@ $(basename $&lt;).md
-  rm $(basename $&lt;).md
-
-%.html: %.md
-  pandoc --template _layouts/default.html metadata.yaml -o $@ $&lt; 
-</code></pre>
-<p>Note the <code>Rmd</code> building is somewhat more cumbersome since we have to bypass <code>rmarkdown:render</code> for this to work.</p>
-<p>I had to collapse all my <code>_includes</code> and nested <code>_layouts</code> into a single <code>layout</code>, replace the Jekyll Liquid blocks, <code>{{</code> with pandoc-template <code>$</code> ones, and write out a basic <code>metadata.yaml</code> file, and things are <a href="http://io.carlboettiger.info/template/">good to go</a>.</p>
-<hr />
-<p>Nonetheless, I sometimes wish I could break templates into more re-usable components; similar to the the way <code>_includes</code> provides re-usable components for the templates specified in the <code>_layouts</code> directory of a jekyll site.</p>
-<p>My first thought was to simply add the re-usable elements into a metadata block itself. (This seemed particularly promising since we can already have an external metadata.yaml to provide a metadata block we can use across multiple file). However, it seems that Pandoc always escape the html contents in my yaml metadata. For instance, if I add the block:</p>
-<pre><code>---
-header: |
-    &lt;header class=&quot;something&quot;&gt;&lt;h1&gt;$title$&lt;/h1&gt;&lt;/header&gt;
----</code></pre>
-<p>and then in my template add <code>$header$</code>, I get the above block but with all the angle brackets escaped. I had thought since I have denoted this as a literal block with ‘|’ in the yaml I would get this block unaltered. How can I prevent pandoc from escaping the html? (I realize that still wouldn’t parse the <code>$title$</code> metadata, but that’s a separate issue).</p>
-<p>The other approach I considered is to exploit the <code>--include-before-body</code> and <code>--include-after-body arguments</code>. While more limited since I am restricted to these two variables, this approach does allow me to specify a file with a re-usable component block and avoids the issue of HTML escaping observed above. Other than the limit of two such variables, the other limit to this approach is that metadata elements like <code>$title$</code> are processed only in templates, not in files.</p>
-<p>It seems like pandoc is thus really close to being able to support templates that are made from re-usable blocks rather than completely specified from scratch, but not quite there. I realize pandoc isn’t trying to be a replacement for static website generation, but still feel that re-usable blocks would make the existing template system a bit more flexible and user-friendly.</p>
-<p>Quite a few of pandoc’s current functions already approximate this behavior in a hard-wired fashion; e.g. <code>$highlight-css$</code> uses the <code>--highlight-style</code> option to select among a bunch of pre-defined highlight blocks. Thus I suspect pandoc might be easier to extend in the future if such features could just be added through an include mechanism rather than this hardwired approach.</p>
-<p><em>See this as a query to <a href="https://groups.google.com/forum/#!topic/pandoc-discuss/pe63zLmNwtk">pandoc-discuss</a></em></p>
- 
-<!-- not that raw_content depends on custom generator, 
-     see _plugins/jekyll-labnotebook-plugins/raw_content --> 
-</article> 
-<p> <a href="/2014/10/28/jekyll-free.html"> <em>Read more</em></a> </p>
 <br />
 <br />
 
